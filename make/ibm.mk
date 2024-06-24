@@ -1,23 +1,22 @@
-DEV_VERSION ?=1.0.0
+DEV_VERSION ?= dev # Could be other string or version number
 DEV_REGISTRY ?= quay.io/bedrockinstallerfid
 
 YQ_VERSION ?= v4.44.1
+
+ifneq ($(shell echo "$(DEV_VERSION)" | grep -E '^[^0-9]'),)
+	TAG := $(DEV_VERSION)
+else
+	TAG := v$(DEV_VERSION)
+endif
 
 # Change the image to dev when applying deployment manifests
 deploy: configure-dev
 
 # Configure the varaiable for the dev build
 .PHONY: configure-dev
-configure-dev: assgin-tag
+configure-dev:
 	$(eval REGISTRY := $(DEV_REGISTRY))
 	$(eval VERSION := $(DEV_VERSION))
-
-# Assign the tag for dev image
-.PHONY: assgin-tag
-assgin-tag:
-ifeq ($(DEV_VERSION),dev)
-		$(eval TAG := dev)
-endif
 	
 ##@ Development Build
 .PHONY: docker-build-dev
