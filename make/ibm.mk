@@ -1,5 +1,5 @@
-DEV_VERSION ?= 0.0.1-dev
-DEV_REGISTRY ?= quay.io/yuchen_shen
+DEV_VERSION ?=1.0.0
+DEV_REGISTRY ?= quay.io/bedrockinstallerfid
 
 YQ_VERSION ?= v4.44.1
 
@@ -8,13 +8,22 @@ deploy: configure-dev
 
 # Configure the varaiable for the dev build
 .PHONY: configure-dev
-configure-dev:
+configure-dev: assgin-tag
 	$(eval REGISTRY := $(DEV_REGISTRY))
 	$(eval VERSION := $(DEV_VERSION))
 
+# Assign the tag for dev image
+.PHONY: assgin-tag
+assgin-tag:
+ifeq ($(DEV_VERSION),dev)
+		$(eval TAG := dev)
+endif
+	
 ##@ Development Build
 .PHONY: docker-build-dev
 docker-build-dev: configure-dev docker-build 
+	@echo "DEV_VERSION: $(DEV_VERSION)"
+	@echo "VERSION: $(VERSION)"
 
 .PHONY: docker-build-push-dev
 docker-build-push-dev: docker-build-dev docker-push
