@@ -9,14 +9,22 @@ else
 	TAG := v$(DEV_VERSION)
 endif
 
+DEV_IMG ?= $(DEV_REGISTRY)/ibm-account-iam-operator-bundle:$(TAG)
+
+DEV_BUNDLE_IMG ?= $(DEV_REGISTRY)/ibm-account-iam-operator-bundle:$(TAG)
+
+DEV_CATALOG_IMG ?= $(DEV_REGISTRY)/ibm-account-iam-operator-catalog:$(TAG)
+
 # Change the image to dev when applying deployment manifests
 deploy: configure-dev
 
 # Configure the varaiable for the dev build
 .PHONY: configure-dev
 configure-dev:
-	$(eval REGISTRY := $(DEV_REGISTRY))
 	$(eval VERSION := $(DEV_VERSION))
+	$(eval IMG := $(DEV_IMG))
+	$(eval BUNDLE_IMG := $(DEV_BUNDLE_IMG))
+	$(eval CATALOG_IMG := $(DEV_CATALOG_IMG))
 	
 ##@ Development Build
 .PHONY: docker-build-dev
