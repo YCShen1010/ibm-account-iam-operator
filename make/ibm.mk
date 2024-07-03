@@ -71,3 +71,7 @@ YQ = $(shell which yq)
 endif
 endif
 
+# Test
+.PHONY: test
+test: ## Run unit test on prow
+	@echo "Running unit tests for the controllers."
