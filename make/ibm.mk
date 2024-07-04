@@ -29,8 +29,6 @@ configure-dev:
 ##@ Development Build
 .PHONY: docker-build-dev
 docker-build-dev: configure-dev docker-build 
-	@echo "DEV_VERSION: $(DEV_VERSION)"
-	@echo "VERSION: $(VERSION)"
 
 .PHONY: docker-build-push-dev
 docker-build-push-dev: docker-build-dev docker-push
@@ -72,6 +70,6 @@ endif
 endif
 
 # Test
-.PHONY: test
-test: ## Run unit test on prow
-	@echo "Running unit tests for the controllers."
+.PHONY: check
+check: ## @code Run the code check
+	@echo "Running check for the code."
