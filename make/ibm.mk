@@ -55,3 +55,5 @@ clean-before-commit:
 .PHONY: check
 check: ## @code Run the code check
 	@echo "Running check for the code."
+	@echo "Run make install-docker-buildx"
+	$(MAKE) install-docker-buildx
