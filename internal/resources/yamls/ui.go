@@ -14,7 +14,6 @@ var TemplateYamlsUI = []string{
 	CertUI,
 	ConfigUI,
 	SecretUI,
-	RouteAPI,
 	RouteInstance,
 	RouteAPIInstance,
 }
@@ -199,29 +198,6 @@ stringData:
     CS_IDP_URL={{ .CSIDPURL }}
 `
 
-var RouteAPI = `
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: 'account-iam-ui-onprem'
-  annotations:
-    argocd.argoproj.io/sync-wave: '8'
-    haproxy.router.openshift.io/timeout: 30m
-spec:
-  host: {{ .Hostname }}
-  to:
-    kind: Service
-    name: 'account-iam-ui-api-service-onprem'
-    weight: 100
-  port:
-    targetPort: https
-  tls:
-    termination: reencrypt
-    insecureEdgeTerminationPolicy: Redirect
-  path: /api
-  wildcardPolicy: None     
-`
-
 var RouteInstance = `
 apiVersion: route.openshift.io/v1
 kind: Route
@@ -241,7 +217,7 @@ spec:
   tls:
     termination: reencrypt
     insecureEdgeTerminationPolicy: Redirect
-  path: /instance/management
+  path: /instance
   wildcardPolicy: None
 `
 
