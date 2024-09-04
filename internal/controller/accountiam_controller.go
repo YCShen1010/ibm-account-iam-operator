@@ -76,7 +76,7 @@ type BootstrapSecret struct {
 var BootstrapData BootstrapSecret
 
 // BootstrapSecret stores all the bootstrap secret data
-type MCSPSecret struct {
+type IntegrationConfig struct {
 	DiscoveryEndpoint    string
 	DefaultIDPValue      string
 	GlobalAccountIDP     string
@@ -86,7 +86,7 @@ type MCSPSecret struct {
 	AccountIAMNamespace  string
 }
 
-var MCSPData MCSPSecret
+var IntegrationData IntegrationConfig
 
 // RouteData holds the parameters for the Route CR
 type RouteParams struct {
@@ -422,7 +422,7 @@ func (r *AccountIAMReconciler) initMCSPData(ctx context.Context, ns string, host
 	accountIAMHost := strings.Replace(host, "cp-console", "account-iam", 1)
 	accountIAMUIHost := strings.Replace(host, "cp-console", "account-iam-console", 1)
 
-	MCSPData = MCSPSecret{
+	IntegrationData = IntegrationConfig{
 		DiscoveryEndpoint:    utils.Concat("https://", host, "/idprovider/v1/auth/.well-known/openid-configuration"),
 		DefaultIDPValue:      utils.Concat("https://", host, "/idprovider/v1/auth"),
 		GlobalAccountIDP:     utils.Concat("https://", host, "/idprovider/v1/auth"),
@@ -541,7 +541,7 @@ func (r *AccountIAMReconciler) reconcileOperandResources(ctx context.Context, in
 	BootstrapData.GlobalAccountAud = base64.StdEncoding.EncodeToString([]byte(string(decodedGlobalAud) + "," + wlpClientID))
 	BootstrapData.DefaultAUDValue = base64.StdEncoding.EncodeToString([]byte(string(decodedDefaultAud) + "," + wlpClientID))
 
-	if err := r.injectData(ctx, instance, res.APP_SECRETS, BootstrapData, MCSPData); err != nil {
+	if err := r.injectData(ctx, instance, res.APP_SECRETS, BootstrapData, IntegrationData); err != nil {
 		return err
 	}
 
@@ -603,12 +603,12 @@ func (r *AccountIAMReconciler) reconcileOperandResources(ctx context.Context, in
 		return err
 	}
 
-	if idpconfig.Data["OIDC_ISSUER_URL"] == MCSPData.DefaultIDPValue {
+	if idpconfig.Data["OIDC_ISSUER_URL"] == IntegrationData.DefaultIDPValue {
 		klog.Infof("ConfigMap platform-auth-idp already has the desired value for OIDC_ISSUER_URL: %s", idpconfig.Data["OIDC_ISSUER_URL"])
 		return nil // Skip the update as the value is already set
 	}
 
-	idpconfig.Data["OIDC_ISSUER_URL"] = MCSPData.DefaultIDPValue
+	idpconfig.Data["OIDC_ISSUER_URL"] = IntegrationData.DefaultIDPValue
 	if err := r.Update(ctx, idpconfig); err != nil {
 		klog.Errorf("Failed to update ConfigMap platform-auth-idp in namespace %s: %v", instance.Namespace, err)
 		return err
@@ -716,7 +716,7 @@ func (r *AccountIAMReconciler) configIM(ctx context.Context, instance *operatorv
 
 	klog.Infof("Applying IM Config Job")
 
-	if err := r.injectData(ctx, instance, res.IMConfigYamls, MCSPData); err != nil {
+	if err := r.injectData(ctx, instance, res.IMConfigYamls, IntegrationData); err != nil {
 		return err
 	}
 
@@ -881,11 +881,16 @@ func (r *AccountIAMReconciler) createOrUpdate(ctx context.Context, obj *unstruct
 	}
 
 	fromCluster := &unstructured.Unstructured{}
-	fromCluster.SetKind(obj.GetKind())
-	fromCluster.SetAPIVersion(obj.GetAPIVersion())
+	fromCluster.SetGroupVersionKind(obj.GroupVersionKind())
 	if err := r.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, fromCluster); err != nil {
 		return err
 	}
+
+	if skipUpdate, ok := fromCluster.GetAnnotations()[resources.SkipAnnotation]; ok && skipUpdate == "true" {
+		klog.Infof("Skipping update for %s %s/%s.", obj.GetKind(), obj.GetNamespace(), obj.GetName())
+		return nil
+	}
+
 	obj.SetResourceVersion(fromCluster.GetResourceVersion())
 	if err := r.Update(ctx, obj); err != nil {
 		return err
