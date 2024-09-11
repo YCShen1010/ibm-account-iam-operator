@@ -30,6 +30,7 @@ import (
 
 	"github.com/IBM/ibm-user-management-operator/internal/resources"
 	odlm "github.com/IBM/operand-deployment-lifecycle-manager/v4/api/v1alpha1"
+	"github.com/ghodss/yaml"
 	ocproute "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -169,12 +170,6 @@ func GetSecretData(ctx context.Context, k8sClient client.Client, secretName, ns,
 	return string(data), nil
 }
 
-// HashResource generates a hash from the raw resource data
-func HashResource(rawData []byte) string {
-	hashedData := sha256.Sum256(rawData)
-	return hex.EncodeToString(hashedData[:7])
-}
-
 func CombineData(dataStructs ...interface{}) map[string]interface{} {
 	combinedData := make(map[string]interface{})
 
@@ -219,6 +214,70 @@ func InsertColonInURL(redisURL string) string {
 		return parts[0] + "@" + parts[1]
 	}
 	return redisURL
+}
+
+// CalculateHashes calculates the hash for the existing cluster resource and the new template resource
+func CalculateHashes(fromCluster *unstructured.Unstructured, fromTemplate *unstructured.Unstructured) (string, string, error) {
+	// Get the hash from annotations in the cluster resource
+	clusterAnnos := fromCluster.GetAnnotations()
+	clusterHash := ""
+	if clusterAnnos != nil {
+		clusterHash = clusterAnnos[resources.HashedData]
+	}
+
+	// Calculate the hash for the template resource
+	templateData, err := yaml.Marshal(fromTemplate.Object)
+	if err != nil {
+		return "", "", err
+	}
+	templateHash := sha256.Sum256(templateData)
+	templateHashStr := hex.EncodeToString(templateHash[:7])
+
+	return clusterHash, templateHashStr, nil
+}
+
+// SetHashAnnotation sets the hash annotation in the object
+func SetHashAnnotation(obj *unstructured.Unstructured, hash string) {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[resources.HashedData] = hash
+	obj.SetAnnotations(annotations)
+}
+
+func MergeCR(fromCluster *unstructured.Unstructured, fromTemplate *unstructured.Unstructured) *unstructured.Unstructured {
+	// Copy fromCluster so we don't modify the original
+	mergedObj := fromCluster.DeepCopy()
+
+	// Merge annotations
+	clusterAnnotations := mergedObj.GetAnnotations()
+	templateAnnotations := fromTemplate.GetAnnotations()
+
+	if clusterAnnotations == nil {
+		clusterAnnotations = make(map[string]string)
+	}
+	for key, value := range templateAnnotations {
+		clusterAnnotations[key] = value
+	}
+	mergedObj.SetAnnotations(clusterAnnotations)
+
+	// Merge labels
+	clusterLabels := mergedObj.GetLabels()
+	templateLabels := fromTemplate.GetLabels()
+
+	if clusterLabels == nil {
+		clusterLabels = make(map[string]string)
+	}
+	for key, value := range templateLabels {
+		clusterLabels[key] = value
+	}
+	mergedObj.SetLabels(clusterLabels)
+
+	// Optionally, merge other fields if necessary (metadata, spec, etc.)
+	// In case other fields like `spec` need to be merged, it can be done here
+
+	return mergedObj
 }
 
 // -------------- Wait Functions --------------
