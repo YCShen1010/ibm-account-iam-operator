@@ -796,7 +796,6 @@ func (r *AccountIAMReconciler) initUIBootstrapData(ctx context.Context, instance
 		klog.Errorf("Failed to get secret %s in namespace %s: %v", resources.IMAPISecret, instance.Namespace, err)
 		return err
 	}
-	klog.Infof("apiKey: %s", apiKey)
 
 	// Get the Redis URL SSL
 	redisURlssl, err := utils.GetSecretData(ctx, r.Client, resources.Rediscp, instance.Namespace, resources.RedisURLssl)
@@ -805,7 +804,6 @@ func (r *AccountIAMReconciler) initUIBootstrapData(ctx context.Context, instance
 		return err
 	}
 	redisURlssl = utils.InsertColonInURL(redisURlssl)
-	klog.Infof("redisURlssl: %s", redisURlssl)
 
 	// get Redis cert
 	redisCert, err := utils.GetSecretData(ctx, r.Client, resources.RedisCert, instance.Namespace, resources.RedisCertKey)
@@ -898,6 +896,8 @@ func (r *AccountIAMReconciler) createOrUpdate(ctx context.Context, obj *unstruct
 			return err
 		}
 
+		time.Sleep(10 * time.Second)
+
 		utils.SetHashAnnotation(obj, templateHash)
 
 		if err := r.Create(ctx, obj); err != nil {
@@ -910,7 +910,12 @@ func (r *AccountIAMReconciler) createOrUpdate(ctx context.Context, obj *unstruct
 	// handle non-Job resources
 	if clusterHash == templateHash {
 		// Merge fromTemplate into fromCluster and update
-		mergedObj := utils.MergeCR(fromCluster, obj)
+
+		mergedObj, err := utils.MergeResources(fromCluster, obj)
+		if err != nil {
+			return err
+		}
+
 		utils.SetHashAnnotation(mergedObj, templateHash)
 		mergedObj.SetResourceVersion(fromCluster.GetResourceVersion())
 
@@ -929,6 +934,7 @@ func (r *AccountIAMReconciler) createOrUpdate(ctx context.Context, obj *unstruct
 	if err := r.Update(ctx, obj); err != nil {
 		return err
 	}
+
 	return nil
 }
 
